@@ -55,6 +55,17 @@ async function run() {
         res.send(result);
       });
 
+
+      app.get('/booking/:userId',async(req,res)=>{
+        const id=req.params.userId;
+        
+     
+      const result=await bookingCollections.find({userId:id}).toArray();
+
+
+      res.json(result)
+    })
+
        app.post('/booking',async(req,res)=>{
       const bookingData=req.body;
       const result=await bookingCollections.insertOne(bookingData)
