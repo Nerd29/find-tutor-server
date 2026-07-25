@@ -72,6 +72,18 @@ async function run() {
 
       res.json(result)
     })
+
+    //delete tutor
+   app.delete('/booking/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = { _id: new ObjectId(id) };
+    const result = await bookingCollections.deleteOne(query);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete booking", error: error.message });
+  }
+});
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
