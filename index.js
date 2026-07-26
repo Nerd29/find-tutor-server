@@ -37,6 +37,7 @@ async function run() {
     const database = client.db("find-tutor");
     const tutorsCollection = database.collection("tutor-list");
     const bookingCollections=database.collection('bookings')
+    const addTutorCollection=database.collection('add-tutor')
     // const result = await tutorsCollection.find({}).toArray();
     app.get('/tutors', async (req, res) => {
       const result = await tutorsCollection.find({}).toArray();
@@ -66,12 +67,33 @@ async function run() {
       res.json(result)
     })
 
+    app.get('/featured',async(req,res)=>{
+      const result = await tutorsCollection                                                                                              .find().limit(6).toArray()
+      res.json(result)
+    })
+
+    
+
        app.post('/booking',async(req,res)=>{
       const bookingData=req.body;
       const result=await bookingCollections.insertOne(bookingData)
 
       res.json(result)
     })
+
+    //add-tutor api
+       app.post('/tutor',async(req,res)=>{
+      const tutor=req.body;
+      console.log(tutor)
+      const result=await addTutorCollection.insertOne(tutor)
+
+      res.json(result)
+    })
+
+   app.get('/add-tutor', async (req, res) => {
+   const result= await addTutorCollection.find().toArray()
+    res.send(result);
+});
 
     //delete tutor
    app.delete('/booking/:id', async (req, res) => {
@@ -84,6 +106,20 @@ async function run() {
     res.status(500).json({ message: "Failed to delete booking", error: error.message });
   }
 });
+
+//my-tutor delete
+
+app.delete('/add-tutor/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = { _id: new ObjectId(id) };
+    const result = await addTutorCollection.deleteOne(query);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete booking", error: error.message });
+  }
+});
+
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
