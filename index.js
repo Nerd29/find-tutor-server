@@ -120,6 +120,17 @@ app.delete('/add-tutor/:id', async (req, res) => {
   }
 });
 
+app.patch('/add-tutor/:id',async(req,res)=>{
+  const { id } = req.params;
+  const updatedData=req.body
+  console.log(updatedData)
+  const result=await addTutorCollection.updateOne(
+    {_id:new ObjectId(id)},
+    {$set:updatedData}
+  )
+  res.json(result)
+})
+
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
