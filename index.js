@@ -25,8 +25,8 @@ const client = new MongoClient(uri, {
 });
 
  const JWKS = createRemoteJWKSet(
-      new URL('http://localhost:3000/api/auth/jwks')
-    )
+  new URL('http://127.0.0.1:3000/api/auth/jwks')
+);
 
 const verifyToken=async(req,res,next)=>{
       const authHeader=req?.headers.authorization
@@ -71,22 +71,85 @@ async function run() {
     const bookingCollections=database.collection('bookings')
     const addTutorCollection=database.collection('add-tutor')
     // const result = await tutorsCollection.find({}).toArray();
+
+    //getting all tutors data
     app.get('/tutors', async (req, res) => {
-      const result = await tutorsCollection.find({}).toArray();
-      
-      res.send(result);
+
+      try{
+        const {search,startDate,endDate,sort}=req.query;
+        let query={}
+        if(search){
+          query.name={$regex:search,$options:"i"} //partial matching+case insesnitive
+        }
+
+       if (startDate || endDate) {
+
+            if (startDate) {
+              query.sessionStartDate = {
+                $gte: startDate
+              };
+            }
+
+            if (endDate) {
+              query.sessionEndDate = {
+                $lte: endDate
+              };
+            }
+        }
+
+        let sortOptions = {};
+         if (sort === 'asc') {
+           sortOptions.fee = 1; // Or experience, registrationDate, etc.
+         }
+         else if (sort === 'desc') {
+            sortOptions.fee = -1;
+         }
+         console.log(query)
+
+         const result = await tutorsCollection.find(query).sort(sortOptions).toArray();
+         
+         res.send(result);
+      }
+      catch(error){
+        res.status(500).send({message:"Error Fetching Tutors",error})
+
+      }
 
       
     });
 
    
 
-    app.get('/tutors/:id',verifyToken, async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await tutorsCollection.findOne(query);
-        res.send(result);
-      });
+    app.get('/tutors/:id', verifyToken, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    // Search for both ObjectId and string versions of _id
+    let query;
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    } else {
+      query = { _id: id };
+    }
+
+    // Try finding in the main tutor list first
+    let result = await tutorsCollection.findOne(query);
+
+    // If not found in tutor-list, check the add-tutor collection
+    if (!result) {
+      result = await addTutorCollection.findOne(query);
+    }
+
+    if (!result) {
+      return res.status(404).json({ message: "Tutor not found" });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching tutor details:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
 
 
       app.get('/booking/:userId',async(req,res)=>{
@@ -105,12 +168,38 @@ async function run() {
     })
 
     
-
+//tutor book korbo
        app.post('/booking',async(req,res)=>{
-      const bookingData=req.body;
-      const result=await bookingCollections.insertOne(bookingData)
+        try{
+          const bookingData=req.body;
+          const tutor=await tutorsCollection.findOne({
+             _id: bookingData.tutorId
 
-      res.json(result)
+          })
+
+          if(!tutor){
+            return res.status(404).json({message:"No tutors data found"})
+          }
+          if (tutor.remainingSlots <= 0) {
+          return res.status(400).json({
+            message: "No available slots left"
+          });
+          }
+
+          const result=await bookingCollections.insertOne(bookingData)
+            await tutorsCollection.updateOne({ _id: bookingData.tutorId },
+            {
+              $inc: {
+              remainingSlots: -1
+        }
+      }
+    );
+    res.json(result)
+        }
+        catch (error){
+          res.status(500).json(error)
+        }
+
     })
 
     //add-tutor api
@@ -130,12 +219,38 @@ async function run() {
     //delete tutor
    app.delete('/booking/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const query = { _id: new ObjectId(id) };
-    const result = await bookingCollections.deleteOne(query);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to delete booking", error: error.message });
+    const bookingId = req.params.id;
+
+    const booking = await bookingCollections.findOne({
+     _id:new ObjectId(bookingId)
+    });
+
+          if(!booking){
+            return res.status(404).json({message:"No tutors data found"})
+          }
+    const result = await bookingCollections.deleteOne({
+      _id:new ObjectId(bookingId)
+    });
+
+    await tutorsCollection.updateOne(
+      {
+        _id: booking.tutorId
+      },
+      {
+        $inc: {
+          remainingSlots: 1
+        }
+      }
+    );
+      res.json({
+      success: true,
+      message: "Booking cancelled"
+    });
+
+  } 
+  
+  catch (error) {
+    res.status(500).json(error);
   }
 });
 
