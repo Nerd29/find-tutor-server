@@ -5,7 +5,15 @@ const dotenv = require('dotenv');
 dotenv.config();
 const cors = require('cors');
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://find-tutor-website-khaki.vercel.app",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 const port = process.env.PORT || 8000;
 
@@ -25,7 +33,7 @@ const client = new MongoClient(uri, {
 });
 
  const JWKS = createRemoteJWKSet(
-  new URL('http://127.0.0.1:3000/api/auth/jwks')
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
 );
 
 const verifyToken=async(req,res,next)=>{
@@ -57,11 +65,11 @@ const verifyToken=async(req,res,next)=>{
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     
     
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
 
   
     
